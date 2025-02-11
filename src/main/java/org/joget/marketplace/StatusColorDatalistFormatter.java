@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+
 import org.joget.apps.app.model.AppDefinition;
 import org.joget.apps.app.service.AppPluginUtil;
 import org.joget.apps.app.service.AppUtil;
@@ -12,9 +13,9 @@ import org.joget.apps.datalist.model.DataListColumn;
 import org.joget.apps.datalist.model.DataListColumnFormatDefault;
 import org.joget.commons.util.LogUtil;
 
-public class StatusColorDatalistFormatter extends DataListColumnFormatDefault{
+public class StatusColorDatalistFormatter extends DataListColumnFormatDefault {
 
-   private final static String MESSAGE_PATH = "messages/StatusColorDatalistFormatter";
+    private final static String MESSAGE_PATH = "messages/StatusColorDatalistFormatter";
 
     public String getName() {
         return "Status Color Datalist Formatter";
@@ -26,7 +27,7 @@ public class StatusColorDatalistFormatter extends DataListColumnFormatDefault{
 
     public String getDescription() {
         //support i18n
-		//=======================================================================================================
+        //=======================================================================================================
         return AppPluginUtil.getMessage("org.joget.marketplace.StatusColorDatalistFormatter.pluginDesc", getClassName(), MESSAGE_PATH);
     }
 
@@ -34,52 +35,56 @@ public class StatusColorDatalistFormatter extends DataListColumnFormatDefault{
     public String format(DataList dataList, DataListColumn column, Object row, Object value) {
         AppDefinition appDef = AppUtil.getCurrentAppDefinition();
         String result = (String) value;
- 
+
         if (result != null && !result.isEmpty()) {
             try {
-		boolean isCaseSensitive = false;
-                if(getPropertyString("statusCaseSensitivity") != null){
-                    isCaseSensitive = Boolean.parseBoolean(getPropertyString("statusCaseSensitivity"));                    
-                }	
-				// set options
-                Object[] options = (Object[]) getProperty("options");
-		Collection<Map> optionMap = new ArrayList<>();
-				
-		for (Object o : options) {
-		Map mapping = (HashMap) o;
-                                        					
-					//case must match
-		if (isCaseSensitive){
-                    if(((String)value).equals((String)mapping.get("value"))){
-			result = "<p style=\"color: white; background-color: " + (String)mapping.get("backgroundColor") + 
-                                 "; white-space: nowrap; border-radius: 8px; padding:6px; text-align: center; margin: 0px; \">" +
-                                 (String)mapping.get("label") + "</p>";
-                                    }
-		}
-				
-					//no case required
-		else{
-                    if(((String)value).equalsIgnoreCase((String)mapping.get("value"))){
-			result = "<p style=\"color: white; background-color: " + (String)mapping.get("backgroundColor") + 
-                                  "; white-space: nowrap; border-radius: 8px; padding:6px; text-align: center; margin: 0px; \">" +
-                                   (String)mapping.get("label") + "</p>";
-                                    }
-		}
-						
-		optionMap.add(mapping);
-		}
-				
-		Map model = new HashMap();
-		model.put("options", optionMap);
-		model.put("columnName", column.getName());
-		model.put("element", this);				
+                // Process hash variables
+                boolean isCaseSensitive = Boolean.parseBoolean((getPropertyString("statusCaseSensitivity")));
+
+                // Validate options property
+                Object optionsProperty = getProperty("options");
+                if (!(optionsProperty instanceof Object[])) {
+                    return result; // Return early if options are invalid
+                }
+                Object[] options = (Object[]) optionsProperty;
+
+                // Store formatted options
+                ArrayList<Map<String, String>> optionMap = new ArrayList<>();
+
+                for (Object o : options) {
+                    Map<String, String> mapping = (Map<String, String>) o;
+                    String mappingValue = mapping.get("value");
+
+                    if ((isCaseSensitive && value.equals(mappingValue)) || (!isCaseSensitive && result.equalsIgnoreCase(mappingValue))) {
+                        result = generateStyledHtml(mapping);
+                        break; // Exit loop early after a match
+                    }
+
+                    optionMap.add(mapping);
+                }
+
+                // Store model data
+                Map<String, Object> model = new HashMap<>();
+                model.put("options", optionMap);
+                model.put("columnName", column.getName());
+                model.put("element", this);
 
             } catch (Exception e) {
-                LogUtil.error(getClassName(), e, "");
+                LogUtil.error(getClass().getName(), e, "Error occurred while formatting DataList column: " + column.getName());
             }
+        }
+        return result;
     }
-    return result;
+
+    // Centralized function for generating formatted HTML
+    private String generateStyledHtml(Map<String, String> mapping) {
+        return String.format(
+                "<p style=\"color: white; background-color: %s; white-space: nowrap; " +
+                        "border-radius: 8px; padding:6px; text-align: center; margin: 0px;\">%s</p>",
+                mapping.get("backgroundColor"), mapping.get("label")
+        );
     }
+
 
     public String getLabel() {
         //support i18n
